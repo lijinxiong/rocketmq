@@ -42,21 +42,50 @@ import org.apache.rocketmq.srvutil.FileWatchService;
 public class NamesrvController {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.NAMESRV_LOGGER_NAME);
 
+    /**
+     * nameServer 配置信息
+     */
     private final NamesrvConfig namesrvConfig;
 
+    /**
+     * nettyServer 配置信息
+     */
     private final NettyServerConfig nettyServerConfig;
 
+    /**
+     * 单个线程的定时调度线程池
+     */
     private final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryImpl(
         "NSScheduledThread"));
+
+    /**
+     * 键值对管理
+     */
     private final KVConfigManager kvConfigManager;
+
+    /**
+     * 路由信息管理
+     */
     private final RouteInfoManager routeInfoManager;
 
+    /**
+     * 实际启动对 netty server
+     */
     private RemotingServer remotingServer;
 
+    /**
+     * broker 管理
+     */
     private BrokerHousekeepingService brokerHousekeepingService;
 
+    /**
+     * 固定大小对线程池
+     */
     private ExecutorService remotingExecutor;
 
+    /**
+     * 配置类
+     */
     private Configuration configuration;
     private FileWatchService fileWatchService;
 
@@ -76,16 +105,20 @@ public class NamesrvController {
     public boolean initialize() {
 
         this.kvConfigManager.load();
-
+        // 创建 nettyServer
         this.remotingServer = new NettyRemotingServer(this.nettyServerConfig, this.brokerHousekeepingService);
 
+        // 创建线程池、默认8个线程、最后丢给 netty Server 使用
         this.remotingExecutor =
             Executors.newFixedThreadPool(nettyServerConfig.getServerWorkerThreads(), new ThreadFactoryImpl("RemotingExecutorThread_"));
 
+        // 为 remotingServer 绑定 processor 实际是用来处理 nettyServer 接收到到请求
         this.registerProcessor();
 
+        // 扫描不活跃到 broker
         this.scheduledExecutorService.scheduleAtFixedRate(NamesrvController.this.routeInfoManager::scanNotActiveBroker, 5, 10, TimeUnit.SECONDS);
 
+        // 打配置
         this.scheduledExecutorService.scheduleAtFixedRate(NamesrvController.this.kvConfigManager::printAllPeriodically, 1, 10, TimeUnit.MINUTES);
 
         if (TlsSystemConfig.tlsMode != TlsMode.DISABLED) {

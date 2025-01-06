@@ -54,10 +54,26 @@ public class RouteInfoManager {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.NAMESRV_LOGGER_NAME);
     private final static long BROKER_CHANNEL_EXPIRED_TIME = 1000 * 60 * 2;
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
+    /**
+     * 根据 topic 获取到这个 topic 下所有到队列信息以及所在到 brokerName
+     * 然后可以根据这个 brokerName 可以获取到这个 broker 到地址
+     */
     private final HashMap<String/* topic */, Map<String /* brokerName */ , QueueData>> topicQueueTable;
+    /**
+     * BrokerData 中有集群名称、broker地址（主从所在的地址）
+     */
     private final HashMap<String/* brokerName */, BrokerData> brokerAddrTable;
+    /**
+     * 集群下面的 broker 名称集合
+     */
     private final HashMap<String/* clusterName */, Set<String/* brokerName */>> clusterAddrTable;
+    /**
+     * 维护了每个 Broker 与 NameSrv 存活关系
+     */
     private final HashMap<String/* brokerAddr */, BrokerLiveInfo> brokerLiveTable;
+    /**
+     *
+     */
     private final HashMap<String/* brokerAddr */, List<String>/* Filter Server */> filterServerTable;
 
     public RouteInfoManager() {
@@ -149,6 +165,7 @@ public class RouteInfoManager {
             try {
                 this.lock.writeLock().lockInterruptibly();
 
+                // 根据 clusterName 查到所有的 brokerName
                 Set<String> brokerNames = this.clusterAddrTable.computeIfAbsent(clusterName, k -> new HashSet<>());
                 brokerNames.add(brokerName);
 
@@ -156,37 +173,47 @@ public class RouteInfoManager {
 
                 BrokerData brokerData = this.brokerAddrTable.get(brokerName);
                 if (null == brokerData) {
+                    // 如果该 broker 是第一次注册
                     registerFirst = true;
                     brokerData = new BrokerData(clusterName, brokerName, new HashMap<>());
                     this.brokerAddrTable.put(brokerName, brokerData);
                 }
+                // 从变成主。先将原来的从移除掉、然后再将新的主 put 进去
+                // 相同的 ip:port 必须保证唯一
                 Map<Long, String> brokerAddrsMap = brokerData.getBrokerAddrs();
                 //Switch slave to master: first remove <1, IP:PORT> in namesrv, then add <0, IP:PORT>
                 //The same IP:PORT must only have one record in brokerAddrTable
                 Iterator<Entry<Long, String>> it = brokerAddrsMap.entrySet().iterator();
                 while (it.hasNext()) {
                     Entry<Long, String> item = it.next();
+                    // 此 broker 的地址已经存在 map 里面了、但是 brokerId 发生变化、那么考虑主从发生变化
                     if (null != brokerAddr && brokerAddr.equals(item.getValue()) && brokerId != item.getKey()) {
                         log.debug("remove entry {} from brokerData", item);
                         it.remove();
                     }
                 }
 
+                // 放入新的并返回旧的、如果不存在则为 null
                 String oldAddr = brokerData.getBrokerAddrs().put(brokerId, brokerAddr);
                 if (MixAll.MASTER_ID == brokerId) {
+                    // 新主出现了
                     log.info("cluster [{}] brokerName [{}] master address change from {} to {}",
                             brokerData.getCluster(), brokerData.getBrokerName(), oldAddr, brokerAddr);
                 }
 
+                // 不是第一次注册
                 registerFirst = registerFirst || (null == oldAddr);
 
                 if (null != topicConfigWrapper
                         && MixAll.MASTER_ID == brokerId) {
+                    // 此次注册的是 master 节点
                     if (this.isBrokerTopicConfigChanged(brokerAddr, topicConfigWrapper.getDataVersion())
                             || registerFirst) {
+                        // 如果数据版本发生变化、或者是第一次注册
                         ConcurrentMap<String, TopicConfig> tcTable =
                                 topicConfigWrapper.getTopicConfigTable();
                         if (tcTable != null) {
+                            // 更新 topic 的 queue
                             for (Map.Entry<String, TopicConfig> entry : tcTable.entrySet()) {
                                 this.createAndUpdateQueueData(brokerName, entry.getValue());
                             }
@@ -194,6 +221,7 @@ public class RouteInfoManager {
                     }
                 }
 
+                // 填充 broker 状态表、以便心跳检查
                 BrokerLiveInfo prevBrokerLiveInfo = this.brokerLiveTable.put(brokerAddr,
                         new BrokerLiveInfo(
                                 System.currentTimeMillis(),
@@ -212,6 +240,7 @@ public class RouteInfoManager {
                     }
                 }
 
+                // 如果不是主节点、则将 master 的 addr 将入到 从的 haServerAddr 和 masterAddr
                 if (MixAll.MASTER_ID != brokerId) {
                     String masterAddr = brokerData.getBrokerAddrs().get(MixAll.MASTER_ID);
                     if (masterAddr != null) {
@@ -465,14 +494,22 @@ public class RouteInfoManager {
         return null;
     }
 
+    /**
+     * 扫描不活跃的 broker
+     */
     public int scanNotActiveBroker() {
         int removeCount = 0;
         Iterator<Entry<String, BrokerLiveInfo>> it = this.brokerLiveTable.entrySet().iterator();
+        // 遍历存活 broker map
         while (it.hasNext()) {
             Entry<String, BrokerLiveInfo> next = it.next();
+            // 得到上一次更新时间
             long last = next.getValue().getLastUpdateTimestamp();
             if ((last + BROKER_CHANNEL_EXPIRED_TIME) < System.currentTimeMillis()) {
+                // 2 分钟没发心跳
+                // 关闭channel
                 RemotingUtil.closeChannel(next.getValue().getChannel());
+                // 移出 map
                 it.remove();
                 log.warn("The broker channel expired, {} {}ms", next.getKey(), BROKER_CHANNEL_EXPIRED_TIME);
                 this.onChannelDestroy(next.getKey(), next.getValue().getChannel());
