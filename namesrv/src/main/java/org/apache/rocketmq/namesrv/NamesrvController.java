@@ -103,25 +103,29 @@ public class NamesrvController {
     }
 
     public boolean initialize() {
-
+        // 加载kvConfigPath下kvConfig.json配置文件里的KV配置，然后将这些配置放到KVConfigManager#configTable属性中
         this.kvConfigManager.load();
         // 创建 nettyServer
+        // brokerHousekeepingService 是在NamesrvController实例化时构造函数里实例化的，
+        // 该类负责Broker连接事件的处理，实现了ChannelEventListener，主要用来管理RouteInfoManager的brokerLiveTable
         this.remotingServer = new NettyRemotingServer(this.nettyServerConfig, this.brokerHousekeepingService);
 
         // 创建线程池、默认8个线程、最后丢给 netty Server 使用
         this.remotingExecutor =
             Executors.newFixedThreadPool(nettyServerConfig.getServerWorkerThreads(), new ThreadFactoryImpl("RemotingExecutorThread_"));
 
-        // 为 remotingServer 绑定 processor 实际是用来处理 nettyServer 接收到到请求
+        //注册Netty服务端业务处理逻辑，如果开启了clusterTest，那么注册的请求处理类是ClusterTestRequestProcessor，
+        // 否则请求处理类是DefaultRequestProcessor
         this.registerProcessor();
 
-        // 扫描不活跃到 broker
+        // 注册心跳机制线程池，延迟5秒启动，每隔10秒遍历 RouteInfoManager#brokerLiveTable 这个属性，用来扫描不存活的broker
         this.scheduledExecutorService.scheduleAtFixedRate(NamesrvController.this.routeInfoManager::scanNotActiveBroker, 5, 10, TimeUnit.SECONDS);
 
-        // 打配置
+        // 注册打印KV配置线程池，延迟1分钟启动、每10分钟打印出kvConfig配置
         this.scheduledExecutorService.scheduleAtFixedRate(NamesrvController.this.kvConfigManager::printAllPeriodically, 1, 10, TimeUnit.MINUTES);
 
         if (TlsSystemConfig.tlsMode != TlsMode.DISABLED) {
+            // rocketmq可以通过开启TLS来提高数据传输的安全性，如果开启了，那么需要注册一个监听器来重新加载SslContext
             // Register a listener to reload SslContext
             try {
                 fileWatchService = new FileWatchService(
@@ -174,6 +178,7 @@ public class NamesrvController {
     }
 
     public void start() throws Exception {
+        // 启动netty服务
         this.remotingServer.start();
 
         if (this.fileWatchService != null) {

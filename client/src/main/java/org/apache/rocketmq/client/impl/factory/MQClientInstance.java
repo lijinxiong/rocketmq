@@ -273,6 +273,7 @@ public class MQClientInstance {
             @Override
             public void run() {
                 try {
+                    // 从nameserver更新最新的topic路由信息
                     MQClientInstance.this.updateTopicRouteInfoFromNameServer();
                 } catch (Exception e) {
                     log.error("ScheduledTask updateTopicRouteInfoFromNameServer exception", e);

@@ -20,11 +20,35 @@
  */
 package org.apache.rocketmq.common.protocol.route;
 
+/**
+ * topicQueueTable:{    "topic1": [
+ * {            "brokerName": "broker-a",
+ * "readQueueNums":4,
+ * "writeQueueNums":4,            "perm":6,            "topicSynFlag":0,        },
+ * {            "brokerName": "broker-b",
+ * "readQueueNums":4,            "writeQueueNums":4,            "perm":6,            "topicSynFlag":0,        }    ]
+ * }
+ */
 public class QueueData implements Comparable<QueueData> {
+    /**
+     * broker 名称
+     */
     private String brokerName;
+    /**
+     * 读队列数量
+     */
     private int readQueueNums;
+    /**
+     * 写队列数量
+     */
     private int writeQueueNums;
+    /**
+     * 权限
+     */
     private int perm;
+    /**
+     * topic 同步标记
+     */
     private int topicSysFlag;
 
     public int getReadQueueNums() {
@@ -99,8 +123,8 @@ public class QueueData implements Comparable<QueueData> {
     @Override
     public String toString() {
         return "QueueData [brokerName=" + brokerName + ", readQueueNums=" + readQueueNums
-            + ", writeQueueNums=" + writeQueueNums + ", perm=" + perm + ", topicSysFlag=" + topicSysFlag
-            + "]";
+                + ", writeQueueNums=" + writeQueueNums + ", perm=" + perm + ", topicSysFlag=" + topicSysFlag
+                + "]";
     }
 
     @Override

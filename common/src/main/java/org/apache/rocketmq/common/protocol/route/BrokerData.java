@@ -23,12 +23,24 @@ import java.util.List;
 import java.util.Random;
 import org.apache.rocketmq.common.MixAll;
 
+/**
+ * brokerAddrTable:{    "broker-a": {        "cluster": "c1",        "brokerName": "broker-a",
+ * "brokerAddrs": {            0: "192.168.1.1:10000",            1: "192.168.1.2:10000"        }    },
+ * "broker-b": {        "cluster": "c1",        "brokerName": "broker-b",
+ * "brokerAddrs": {            0: "192.168.1.3:10000",            1: "192.168.1.4:10000"        }    }}
+ */
 public class BrokerData implements Comparable<BrokerData> {
+    /**
+     * 集群名称
+     */
     private String cluster;
+    /**
+     * broker 的名称
+     * 主从的 brokerName 是相同的
+     */
     private String brokerName;
     /**
-     * brokerId 0 是主
-     * 大于 0 是从
+     * brokerId 0 是主、大于 0 是从
      */
     private HashMap<Long/* brokerId */, String/* broker address */> brokerAddrs;
 

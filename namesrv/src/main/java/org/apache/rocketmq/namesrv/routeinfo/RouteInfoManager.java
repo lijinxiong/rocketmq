@@ -57,24 +57,36 @@ public class RouteInfoManager {
     /**
      * 根据 topic 获取到这个 topic 下所有到队列信息以及所在到 brokerName
      * 然后可以根据这个 brokerName 可以获取到这个 broker 到地址
+     * key --> topic
+     * value -->
+     * key --> brokerName
+     * value --> QueueData
      */
-    private final HashMap<String/* topic */, Map<String /* brokerName */ , QueueData>> topicQueueTable;
+    private final HashMap<String, Map<String, QueueData>> topicQueueTable;
+
     /**
+     * key --> brokerName
      * BrokerData 中有集群名称、broker地址（主从所在的地址）
      */
-    private final HashMap<String/* brokerName */, BrokerData> brokerAddrTable;
+    private final HashMap<String, BrokerData> brokerAddrTable;
     /**
+     * key --> clusterName
+     * value --> brokerName
      * 集群下面的 broker 名称集合
+     * clusterAddrTable:{    "c1": ["broker-a","broker-b"]}
      */
-    private final HashMap<String/* clusterName */, Set<String/* brokerName */>> clusterAddrTable;
+    private final HashMap<String, Set<String>> clusterAddrTable;
     /**
+     * key --> brokerAddr
      * 维护了每个 Broker 与 NameSrv 存活关系
      */
-    private final HashMap<String/* brokerAddr */, BrokerLiveInfo> brokerLiveTable;
+    private final HashMap<String, BrokerLiveInfo> brokerLiveTable;
+
     /**
-     *
+     * key --> brokerAddr
+     * value -> Filter Server
      */
-    private final HashMap<String/* brokerAddr */, List<String>/* Filter Server */> filterServerTable;
+    private final HashMap<String, List<String>> filterServerTable;
 
     public RouteInfoManager() {
         this.topicQueueTable = new HashMap<>(1024);
@@ -110,14 +122,14 @@ public class RouteInfoManager {
                 this.lock.writeLock().lockInterruptibly();
                 Set<String> brokerNames = this.clusterAddrTable.get(clusterName);
                 if (brokerNames != null
-                    && !brokerNames.isEmpty()) {
+                        && !brokerNames.isEmpty()) {
                     Map<String, QueueData> queueDataMap = this.topicQueueTable.get(topic);
                     if (queueDataMap != null) {
                         for (String brokerName : brokerNames) {
                             final QueueData removedQD = queueDataMap.remove(brokerName);
                             if (removedQD != null) {
                                 log.info("deleteTopic, remove one broker's topic {} {} {}", brokerName, topic,
-                                    removedQD);
+                                        removedQD);
                             }
                         }
                         if (queueDataMap.isEmpty()) {
@@ -781,10 +793,30 @@ public class RouteInfoManager {
     }
 }
 
+/**
+ * brokerLiveTable:{
+ * "192.168.1.1:10000": {            "lastUpdateTimestamp": 1518270318980,            "dataVersion":versionObj1,            "channel":channelObj,            "haServerAddr":""    },
+ * "192.168.1.2:10000": {            "lastUpdateTimestamp": 1518270318980,            "dataVersion":versionObj1,            "channel":channelObj,            "haServerAddr":"192.168.1.1:10000"     },
+ * "192.168.1.3:10000": {            "lastUpdateTimestamp": 1518270318980,            "dataVersion":versionObj1,            "channel":channelObj,            "haServerAddr":""     },
+ * "192.168.1.4:10000": {            "lastUpdateTimestamp": 1518270318980,             "dataVersion":versionObj1,            "channel":channelObj,            "haServerAddr":"192.168.1.3:10000"     }}
+ */
 class BrokerLiveInfo {
+    /**
+     * 最近一次收到心跳包
+     */
     private long lastUpdateTimestamp;
+    /**
+     * 数据版本号对象
+     */
     private DataVersion dataVersion;
+    /**
+     * netty 的 Channel
+     */
     private Channel channel;
+    /**
+     * master 地址
+     * 初次请求时该值为空、slave 向 NameServer 注册后返回
+     */
     private String haServerAddr;
 
     public BrokerLiveInfo(long lastUpdateTimestamp, DataVersion dataVersion, Channel channel,

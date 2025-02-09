@@ -17,25 +17,65 @@
 package org.apache.rocketmq.remoting.netty;
 
 public class NettyServerConfig implements Cloneable {
+
+    /**
+     * 监听端口
+     */
     private int listenPort = 8888;
+
+    /**
+     * netty 业务线程池个数
+     */
     private int serverWorkerThreads = 8;
+
+    /**
+     * netty public任务线程池个数，netty网络设计没根据业务类型会创建不同线程池毛笔如处理发送消息，
+     * 消息消费心跳检测等。如果业务类型（RequestCode）未注册线程池，则由public线程池执行
+     */
     private int serverCallbackExecutorThreads = 0;
+
+    /**
+     * IO线程池线程个数，主要是NameServer.broker端解析请求，返回相应的线程个数，这类线程主要是处理网络请求的，解析请求包。
+     * 然后转发到各个业务线程池完成具体的业务无操作，然后将结果在返回调用方
+     */
     private int serverSelectorThreads = 3;
+    /**
+     * send oneway消息请求并发度	Broker 参数
+     */
     private int serverOnewaySemaphoreValue = 256;
+    /**
+     * 异步消息发送最大并发度	Broker 参数
+     */
     private int serverAsyncSemaphoreValue = 64;
+
+    /**
+     * 网络连接最大空闲时间。如果链接空闲时间超过此参数设置的值，连接将被关闭
+     */
     private int serverChannelMaxIdleTimeSeconds = 120;
 
+    /**
+     * netty网络socket发送缓存区大小
+     */
     private int serverSocketSndBufSize = NettySystemConfig.socketSndbufSize;
+    /**
+     * netty网络socket接收缓存区大小
+     */
     private int serverSocketRcvBufSize = NettySystemConfig.socketRcvbufSize;
+
     private int writeBufferHighWaterMark = NettySystemConfig.writeBufferHighWaterMark;
     private int writeBufferLowWaterMark = NettySystemConfig.writeBufferLowWaterMark;
     private int serverSocketBacklog = NettySystemConfig.socketBacklog;
+    /**
+     * ByteBuffer 是否开启缓存
+     */
     private boolean serverPooledByteBufAllocatorEnable = true;
 
     /**
+     * 是否启用 Epoll IO 模型
+     * Linux 环境建议开启
      * make install
-     *
-     *
+     * <p>
+     * <p>
      * ../glibc-2.10.1/configure \ --prefix=/usr \ --with-headers=/usr/include \
      * --host=x86_64-linux-gnu \ --build=x86_64-pc-linux-gnu \ --without-gd
      */

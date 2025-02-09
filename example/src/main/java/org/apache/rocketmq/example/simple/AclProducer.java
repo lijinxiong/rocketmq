@@ -16,7 +16,7 @@ public class AclProducer {
         producer.start();
         for (int i = 0; i < 1; i++) {
             try {
-                Message msg = new Message("TopicTest3" ,"TagA" , ("Hello RocketMQ " + i).getBytes(RemotingHelper.DEFAULT_CHARSET));
+                Message msg = new Message("TopicTest" ,"TagA" , ("Hello RocketMQ " + i).getBytes(RemotingHelper.DEFAULT_CHARSET));
                 SendResult sendResult = producer.send(msg);
                 System.out.printf("%s%n", sendResult);
             } catch (Exception e) {
@@ -24,7 +24,10 @@ public class AclProducer {
                 Thread.sleep(1000);
             }
         }
-        producer.shutdown();
+
+        while (true) {
+
+        }
     }
 
     static RPCHook getAclRPCHook() {

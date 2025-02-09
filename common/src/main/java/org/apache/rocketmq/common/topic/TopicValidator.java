@@ -25,24 +25,57 @@ import java.util.Set;
 
 public class TopicValidator {
 
-    public static final String AUTO_CREATE_TOPIC_KEY_TOPIC = "TBW102"; // Will be created at broker when isAutoCreateTopicEnable
+    /**
+     * Will be created at broker when isAutoCreateTopicEnable
+     * 开启自动创建主题的时候会创建这个主题
+     *
+     */
+    public static final String AUTO_CREATE_TOPIC_KEY_TOPIC = "TBW102";
+    /**
+     * 调度的 topic
+     */
     public static final String RMQ_SYS_SCHEDULE_TOPIC = "SCHEDULE_TOPIC_XXXX";
+    /**
+     * 压测的 topic
+     */
     public static final String RMQ_SYS_BENCHMARK_TOPIC = "BenchmarkTest";
+    /**
+     * 事务的 topic
+     */
     public static final String RMQ_SYS_TRANS_HALF_TOPIC = "RMQ_SYS_TRANS_HALF_TOPIC";
+    /**
+     * 链路追踪 topic
+     */
     public static final String RMQ_SYS_TRACE_TOPIC = "RMQ_SYS_TRACE_TOPIC";
+    /**
+     * 事务相关的 topic
+     */
     public static final String RMQ_SYS_TRANS_OP_HALF_TOPIC = "RMQ_SYS_TRANS_OP_HALF_TOPIC";
+    /**
+     * 事务相关的 topic
+     */
     public static final String RMQ_SYS_TRANS_CHECK_MAX_TIME_TOPIC = "TRANS_CHECK_MAX_TIME_TOPIC";
+    /**
+     * 测试 topic ？
+     */
     public static final String RMQ_SYS_SELF_TEST_TOPIC = "SELF_TEST_TOPIC";
+    /**
+     * offset 移动事件？
+     */
     public static final String RMQ_SYS_OFFSET_MOVED_EVENT = "OFFSET_MOVED_EVENT";
 
     public static final String SYSTEM_TOPIC_PREFIX = "rmq_sys_";
     public static final boolean[] VALID_CHAR_BIT_MAP = new boolean[128];
     private static final int TOPIC_MAX_LENGTH = 127;
 
+    /**
+     * 系统的 topic
+     */
     private static final Set<String> SYSTEM_TOPIC_SET = new HashSet<String>();
 
     /**
      * Topics'set which client can not send msg!
+     * 客户端不能 send 消息的 topic
      */
     private static final Set<String> NOT_ALLOWED_SEND_TOPIC_SET = new HashSet<String>();
 
