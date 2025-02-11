@@ -96,6 +96,7 @@ import org.apache.rocketmq.remoting.exception.RemotingTimeoutException;
 import org.apache.rocketmq.remoting.exception.RemotingTooMuchRequestException;
 
 public class DefaultMQProducerImpl implements MQProducerInner {
+
     private final InternalLogger log = ClientLogger.getLog();
     private final Random random = new Random();
     private final DefaultMQProducer defaultMQProducer;
@@ -109,6 +110,9 @@ public class DefaultMQProducerImpl implements MQProducerInner {
     protected BlockingQueue<Runnable> checkRequestQueue;
     protected ExecutorService checkExecutor;
     private ServiceState serviceState = ServiceState.CREATE_JUST;
+    /**
+     *
+     */
     private MQClientInstance mQClientFactory;
     private ArrayList<CheckForbiddenHook> checkForbiddenHookList = new ArrayList<CheckForbiddenHook>();
     private MQFaultStrategy mqFaultStrategy = new MQFaultStrategy();
@@ -188,32 +192,42 @@ public class DefaultMQProducerImpl implements MQProducerInner {
     public void start(final boolean startFactory) throws MQClientException {
         switch (this.serviceState) {
             case CREATE_JUST:
+                // 初始值
+
                 this.serviceState = ServiceState.START_FAILED;
 
                 this.checkConfig();
 
                 if (!this.defaultMQProducer.getProducerGroup().equals(MixAll.CLIENT_INNER_PRODUCER_GROUP)) {
+                    // 默认进入到此处
                     this.defaultMQProducer.changeInstanceNameToPID();
                 }
 
+                // 这里有缓存、如果是一样的 clientId 就会返回同一个
                 this.mQClientFactory = MQClientManager.getInstance().getOrCreateMQClientInstance(this.defaultMQProducer, rpcHook);
 
+                // 将自己注册到 producerTable 中去
                 boolean registerOK = mQClientFactory.registerProducer(this.defaultMQProducer.getProducerGroup(), this);
                 if (!registerOK) {
+                    // 如果 map 中已经有这个生产者组、则抛出异常
                     this.serviceState = ServiceState.CREATE_JUST;
                     throw new MQClientException("The producer group[" + this.defaultMQProducer.getProducerGroup()
                         + "] has been created before, specify another name please." + FAQUrl.suggestTodo(FAQUrl.GROUP_NAME_DUPLICATE_URL),
                         null);
                 }
 
+                // 这个可以忽略、自动创建 topic 这个功能、其实现该功能需要用到的主题
                 this.topicPublishInfoTable.put(this.defaultMQProducer.getCreateTopicKey(), new TopicPublishInfo());
 
+                // 正常启动都是为 true 的
                 if (startFactory) {
+                    // MQ 客户端实例启动
                     mQClientFactory.start();
                 }
 
                 log.info("the producer [{}] start OK. sendMessageWithVIPChannel={}", this.defaultMQProducer.getProducerGroup(),
                     this.defaultMQProducer.isSendMessageWithVIPChannel());
+                // 状态变成运行中
                 this.serviceState = ServiceState.RUNNING;
                 break;
             case RUNNING:
@@ -227,8 +241,9 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                 break;
         }
 
+        // 执行一次心跳
         this.mQClientFactory.sendHeartbeatToAllBrokerWithLock();
-
+        // 请求发送的 holder、干嘛暂时不知道
         RequestFutureHolder.getInstance().startScheduledTask(this);
 
     }

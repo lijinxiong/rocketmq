@@ -96,6 +96,7 @@ public class AsyncTraceDispatcher implements TraceDispatcher {
         if (!UtilAll.isBlank(traceTopicName)) {
             this.traceTopicName = traceTopicName;
         } else {
+            // 使用默认的链路追踪主题
             this.traceTopicName = TopicValidator.RMQ_SYS_TRACE_TOPIC;
         }
         this.traceExecutor = new ThreadPoolExecutor(//

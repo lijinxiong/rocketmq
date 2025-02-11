@@ -62,9 +62,16 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
 
     /**
      * Wrapping internal implementations for virtually all methods presented in this class.
+     * 包了一层
      */
     protected final transient DefaultMQProducerImpl defaultMQProducerImpl;
+    /**
+     * log
+     */
     private final InternalLogger log = ClientLogger.getLog();
+    /**
+     * 重试的返回码
+     */
     private final Set<Integer> retryResponseCodes = new CopyOnWriteArraySet<Integer>(Arrays.asList(
             ResponseCode.TOPIC_NOT_EXIST,
             ResponseCode.SERVICE_NOT_AVAILABLE,
@@ -75,6 +82,7 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     ));
 
     /**
+     * 生产者组
      * Producer group conceptually aggregates all producer instances of exactly same role, which is particularly
      * important when transactional messages are involved. </p>
      *
@@ -91,20 +99,24 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
 
     /**
      * Number of queues to create per default topic.
+     * 默认队列数
      */
     private volatile int defaultTopicQueueNums = 4;
 
     /**
+     * 超时时间
      * Timeout for sending messages.
      */
     private int sendMsgTimeout = 3000;
 
     /**
+     * 超过该值就会压缩 Message
      * Compress message body threshold, namely, message body larger than 4k will be compressed on default.
      */
     private int compressMsgBodyOverHowmuch = 1024 * 4;
 
     /**
+     * 同步的时候发送失败重试次数
      * Maximum number of retry to perform internally before claiming sending failure in synchronous mode. </p>
      *
      * This may potentially cause message duplication which is up to application developers to resolve.
@@ -112,6 +124,7 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     private int retryTimesWhenSendFailed = 2;
 
     /**
+     * 异步发送的时候重试的次数
      * Maximum number of retry to perform internally before claiming sending failure in asynchronous mode. </p>
      *
      * This may potentially cause message duplication which is up to application developers to resolve.
@@ -119,16 +132,19 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     private int retryTimesWhenSendAsyncFailed = 2;
 
     /**
+     * 重试的时候要不要换个 broker
      * Indicate whether to retry another broker on sending failure internally.
      */
     private boolean retryAnotherBrokerWhenNotStoreOK = false;
 
     /**
+     * 最大的 message 大小
      * Maximum allowed message body size in bytes.
      */
     private int maxMessageSize = 1024 * 1024 * 4; // 4M
 
     /**
+     * 异步链路追踪
      * Interface of asynchronous transfer data
      */
     private TraceDispatcher traceDispatcher = null;
@@ -175,7 +191,7 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     /**
      * Constructor specifying producer group.
      *
-     * @param namespace Namespace for this MQ Producer instance.
+     * @param namespace Namespace for this MQ Producer instance. 命名空间
      * @param producerGroup Producer group, see the name-sake field.
      */
     public DefaultMQProducer(final String namespace, final String producerGroup) {
@@ -236,6 +252,7 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
      * @param rpcHook RPC hook to execute per each remoting command execution.
      * @param enableMsgTrace Switch flag instance for message trace.
      * @param customizedTraceTopic The name value of message trace topic.If you don't config,you can use the default
+     *                            用来链路追中的主题
      * trace topic name.
      */
     public DefaultMQProducer(final String namespace, final String producerGroup, RPCHook rpcHook,
@@ -245,12 +262,15 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
         defaultMQProducerImpl = new DefaultMQProducerImpl(this, rpcHook);
         //if client open the message trace feature
         if (enableMsgTrace) {
+            // 开启追踪
             try {
                 AsyncTraceDispatcher dispatcher = new AsyncTraceDispatcher(producerGroup, TraceDispatcher.Type.PRODUCE, customizedTraceTopic, rpcHook);
                 dispatcher.setHostProducer(this.defaultMQProducerImpl);
                 traceDispatcher = dispatcher;
+                // 设置发送的钩子
                 this.defaultMQProducerImpl.registerSendMessageHook(
                     new SendMessageTraceHookImpl(traceDispatcher));
+                // 事务结束的钩子
                 this.defaultMQProducerImpl.registerEndTransactionHook(
                     new EndTransactionTraceHookImpl(traceDispatcher));
             } catch (Throwable e) {
@@ -259,6 +279,10 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
         }
     }
 
+    /**
+     * 协议的一种
+     * HTTPS 是在 HTTP 协议基础上实施 TLS 加密，所有网站以及其他部分 Web 服务都使用该协议。因此，任何使用 HTTPS 的网站都使用 TLS 加密。
+     */
     @Override
     public void setUseTLS(boolean useTLS) {
         super.setUseTLS(useTLS);
@@ -268,6 +292,7 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     }
     
     /**
+     * 启动生产者这个实例
      * Start this producer instance. </p>
      *
      * <strong> Much internal initializing procedures are carried out to make this instance prepared, thus, it's a must
@@ -277,10 +302,13 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
      */
     @Override
     public void start() throws MQClientException {
+        // 设置生产者组
         this.setProducerGroup(withNamespace(this.producerGroup));
+        // 实际实现类 start
         this.defaultMQProducerImpl.start();
         if (null != traceDispatcher) {
             try {
+                // 开启链路追踪
                 traceDispatcher.start(this.getNamesrvAddr(), this.getAccessChannel());
             } catch (MQClientException e) {
                 log.warn("trace dispatcher start failed ", e);
