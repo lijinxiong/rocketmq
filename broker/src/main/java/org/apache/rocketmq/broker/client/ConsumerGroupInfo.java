@@ -17,6 +17,7 @@
 package org.apache.rocketmq.broker.client;
 
 import io.netty.channel.Channel;
+
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -24,6 +25,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+
 import org.apache.rocketmq.common.constant.LoggerName;
 import org.apache.rocketmq.common.consumer.ConsumeFromWhere;
 import org.apache.rocketmq.logging.InternalLogger;
@@ -32,20 +34,31 @@ import org.apache.rocketmq.common.protocol.heartbeat.ConsumeType;
 import org.apache.rocketmq.common.protocol.heartbeat.MessageModel;
 import org.apache.rocketmq.common.protocol.heartbeat.SubscriptionData;
 
+/**
+ * 消费者组的相关信息
+ * 所以在 broker 中是以 consumer group 作为 key
+ * 所以消费者组的订阅信息都要一致
+ * 比如 C1 订阅了 A、B 主题、C2 订阅了 A、C 主题、那么 C1 和 C2 发送心跳过来就会乱套了 、subscriptionTable 的信息一会有 B 一会有C
+ * 同理 tag 也是其中的信息、也需要一致
+ *
+ */
 public class ConsumerGroupInfo {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.BROKER_LOGGER_NAME);
     private final String groupName;
     private final ConcurrentMap<String/* Topic */, SubscriptionData> subscriptionTable =
-        new ConcurrentHashMap<String, SubscriptionData>();
+            new ConcurrentHashMap<String, SubscriptionData>();
+    /**
+     * 这个消费者组下面的所有 channel
+     */
     private final ConcurrentMap<Channel, ClientChannelInfo> channelInfoTable =
-        new ConcurrentHashMap<Channel, ClientChannelInfo>(16);
+            new ConcurrentHashMap<Channel, ClientChannelInfo>(16);
     private volatile ConsumeType consumeType;
     private volatile MessageModel messageModel;
     private volatile ConsumeFromWhere consumeFromWhere;
     private volatile long lastUpdateTimestamp = System.currentTimeMillis();
 
     public ConsumerGroupInfo(String groupName, ConsumeType consumeType, MessageModel messageModel,
-        ConsumeFromWhere consumeFromWhere) {
+                             ConsumeFromWhere consumeFromWhere) {
         this.groupName = groupName;
         this.consumeType = consumeType;
         this.messageModel = messageModel;
@@ -105,8 +118,8 @@ public class ConsumerGroupInfo {
         final ClientChannelInfo info = this.channelInfoTable.remove(channel);
         if (info != null) {
             log.warn(
-                "NETTY EVENT: remove not active channel[{}] from ConsumerGroupInfo groupChannelTable, consumer group: {}",
-                info.toString(), groupName);
+                    "NETTY EVENT: remove not active channel[{}] from ConsumerGroupInfo groupChannelTable, consumer group: {}",
+                    info.toString(), groupName);
             return true;
         }
 
@@ -114,7 +127,8 @@ public class ConsumerGroupInfo {
     }
 
     public boolean updateChannel(final ClientChannelInfo infoNew, ConsumeType consumeType,
-        MessageModel messageModel, ConsumeFromWhere consumeFromWhere) {
+                                 MessageModel messageModel, ConsumeFromWhere consumeFromWhere) {
+        // 是否有新的成员加入
         boolean updated = false;
         this.consumeType = consumeType;
         this.messageModel = messageModel;
@@ -124,54 +138,67 @@ public class ConsumerGroupInfo {
         if (null == infoOld) {
             ClientChannelInfo prev = this.channelInfoTable.put(infoNew.getChannel(), infoNew);
             if (null == prev) {
+                // 这个消费者组 客户端是第一次发送心跳上来
                 log.info("new consumer connected, group: {} {} {} channel: {}", this.groupName, consumeType,
-                    messageModel, infoNew.toString());
+                        messageModel, infoNew.toString());
+                // 新的成员加入
                 updated = true;
             }
 
+            // 如果存在旧的、那肯定以新的为主
             infoOld = infoNew;
         } else {
             if (!infoOld.getClientId().equals(infoNew.getClientId())) {
+                // 使用同一个 channel、但是 clientId 不一样、这个是有问题的
                 log.error("[BUG] consumer channel exist in broker, but clientId not equal. GROUP: {} OLD: {} NEW: {} ",
-                    this.groupName,
-                    infoOld.toString(),
-                    infoNew.toString());
+                        this.groupName,
+                        infoOld.toString(),
+                        infoNew.toString());
+                // 那肯定以新的为主
                 this.channelInfoTable.put(infoNew.getChannel(), infoNew);
             }
         }
 
         this.lastUpdateTimestamp = System.currentTimeMillis();
+        // 刷新更新时间
         infoOld.setLastUpdateTimestamp(this.lastUpdateTimestamp);
 
         return updated;
     }
 
     public boolean updateSubscription(final Set<SubscriptionData> subList) {
+
+        // 是否新增
         boolean updated = false;
 
+        // 遍历心跳发过来的
         for (SubscriptionData sub : subList) {
             SubscriptionData old = this.subscriptionTable.get(sub.getTopic());
             if (old == null) {
                 SubscriptionData prev = this.subscriptionTable.putIfAbsent(sub.getTopic(), sub);
                 if (null == prev) {
+                    // 心跳发过来 但是 subscriptionTable 没有、属于新增
                     updated = true;
                     log.info("subscription changed, add new topic, group: {} {}",
-                        this.groupName,
-                        sub.toString());
+                            this.groupName,
+                            sub.toString());
                 }
             } else if (sub.getSubVersion() > old.getSubVersion()) {
+                // subVersion 其实是当前的毫秒数
                 if (this.consumeType == ConsumeType.CONSUME_PASSIVELY) {
                     log.info("subscription changed, group: {} OLD: {} NEW: {}",
-                        this.groupName,
-                        old.toString(),
-                        sub.toString()
+                            this.groupName,
+                            old.toString(),
+                            sub.toString()
                     );
                 }
 
+                // 用心跳的数据
                 this.subscriptionTable.put(sub.getTopic(), sub);
             }
         }
 
+        // 遍历 broker 中的数据
         Iterator<Entry<String, SubscriptionData>> it = this.subscriptionTable.entrySet().iterator();
         while (it.hasNext()) {
             Entry<String, SubscriptionData> next = it.next();
@@ -186,13 +213,15 @@ public class ConsumerGroupInfo {
             }
 
             if (!exist) {
+                // broker 中有、但是心跳过来的信息没有
                 log.warn("subscription changed, group: {} remove topic {} {}",
-                    this.groupName,
-                    oldTopic,
-                    next.getValue().toString()
+                        this.groupName,
+                        oldTopic,
+                        next.getValue().toString()
                 );
-
+                // 说明客户端发生了变化
                 it.remove();
+                // 更新为 true
                 updated = true;
             }
         }

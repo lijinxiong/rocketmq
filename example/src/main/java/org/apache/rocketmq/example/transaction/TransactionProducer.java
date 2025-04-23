@@ -38,7 +38,9 @@ public class TransactionProducer {
     public static final int MESSAGE_COUNT = 10;
 
     public static void main(String[] args) throws MQClientException, InterruptedException {
+        // 事务监听器
         TransactionListener transactionListener = new TransactionListenerImpl();
+        // 指定生产者组
         TransactionMQProducer producer = new TransactionMQProducer(PRODUCER_GROUP);
 
         // Uncomment the following line while debugging, namesrvAddr should be set to your local address
@@ -49,7 +51,9 @@ public class TransactionProducer {
             return thread;
         });
 
+        // 处理 broker 发过来的事务回查请求
         producer.setExecutorService(executorService);
+        // 监听器
         producer.setTransactionListener(transactionListener);
         producer.start();
 
@@ -59,6 +63,7 @@ public class TransactionProducer {
                 Message msg =
                     new Message(TOPIC, tags[i % tags.length], "KEY" + i,
                         ("Hello RocketMQ " + i).getBytes(RemotingHelper.DEFAULT_CHARSET));
+                // 发送事务消息专属 api
                 SendResult sendResult = producer.sendMessageInTransaction(msg, null);
                 System.out.printf("%s%n", sendResult);
 

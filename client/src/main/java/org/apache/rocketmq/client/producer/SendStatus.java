@@ -17,8 +17,22 @@
 package org.apache.rocketmq.client.producer;
 
 public enum SendStatus {
+    /**
+     * 发送成功
+     * 根据 brokerRole 和 flushDiskType 的配置
+     */
     SEND_OK,
+    /**
+     * 刷磁盘超时、一般是 syncFlushDisk
+     */
     FLUSH_DISK_TIMEOUT,
+    /**
+     * broker 配置为 SYNC_MASTER
+     * 同步给 slave 超时
+     */
     FLUSH_SLAVE_TIMEOUT,
+    /**
+     * Broker 配置为 同步复制（SYNC_MASTER），但当前无可用从节点。
+     */
     SLAVE_NOT_AVAILABLE,
 }

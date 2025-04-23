@@ -99,9 +99,15 @@ public class ConsumerManager {
         ConsumeType consumeType, MessageModel messageModel, ConsumeFromWhere consumeFromWhere,
         final Set<SubscriptionData> subList, boolean isNotifyConsumerIdsChangedEnable) {
 
+        /**
+         * key 为 消费者组
+         * value 为其对应的消费者实例相关信息
+         */
         ConsumerGroupInfo consumerGroupInfo = this.consumerTable.get(group);
         if (null == consumerGroupInfo) {
+            // 如果没有则创建一个新的 put 进去
             ConsumerGroupInfo tmp = new ConsumerGroupInfo(group, consumeType, messageModel, consumeFromWhere);
+            // 防止并发
             ConsumerGroupInfo prev = this.consumerTable.putIfAbsent(group, tmp);
             consumerGroupInfo = prev != null ? prev : tmp;
         }
@@ -113,6 +119,7 @@ public class ConsumerManager {
 
         if (r1 || r2) {
             if (isNotifyConsumerIdsChangedEnable) {
+                // 通知 consumer 执行 rebalance
                 this.consumerIdsChangeListener.handle(ConsumerGroupEvent.CHANGE, group, consumerGroupInfo.getAllChannel());
             }
         }

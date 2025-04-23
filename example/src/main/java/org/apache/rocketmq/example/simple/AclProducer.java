@@ -11,12 +11,13 @@ import org.apache.rocketmq.remoting.common.RemotingHelper;
 
 public class AclProducer {
     public static void main(String[] args) throws MQClientException, InterruptedException {
-        DefaultMQProducer producer = new DefaultMQProducer("please_rename_unique_group_name", getAclRPCHook());
+        System.setProperty("rocketmq.client.logUseSlf4j", "true");
+        DefaultMQProducer producer = new DefaultMQProducer("ljx", getAclRPCHook());
         producer.setNamesrvAddr("127.0.0.1:9876");
         producer.start();
         for (int i = 0; i < 1; i++) {
             try {
-                Message msg = new Message("TopicTest" ,"TagA" , ("Hello RocketMQ " + i).getBytes(RemotingHelper.DEFAULT_CHARSET));
+                Message msg = new Message("TopicTest" ,"*" , ("Hello RocketMQ " + i).getBytes(RemotingHelper.DEFAULT_CHARSET));
                 SendResult sendResult = producer.send(msg);
                 System.out.printf("%s%n", sendResult);
             } catch (Exception e) {
@@ -26,7 +27,7 @@ public class AclProducer {
         }
 
         while (true) {
-
+            Thread.sleep(10000);
         }
     }
 

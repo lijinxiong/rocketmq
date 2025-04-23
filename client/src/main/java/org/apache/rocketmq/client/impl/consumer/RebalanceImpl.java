@@ -215,11 +215,14 @@ public abstract class RebalanceImpl {
     }
 
     public void doRebalance(final boolean isOrder) {
+        // 这个消费者订阅了哪些主题
+        // Subscription Table，
         Map<String, SubscriptionData> subTable = this.getSubscriptionInner();
         if (subTable != null) {
             for (final Map.Entry<String, SubscriptionData> entry : subTable.entrySet()) {
                 final String topic = entry.getKey();
                 try {
+                    // 按主题进行重平衡
                     this.rebalanceByTopic(topic, isOrder);
                 } catch (Throwable e) {
                     if (!topic.startsWith(MixAll.RETRY_GROUP_TOPIC_PREFIX)) {
@@ -233,6 +236,7 @@ public abstract class RebalanceImpl {
     }
 
     public ConcurrentMap<String, SubscriptionData> getSubscriptionInner() {
+        // consumer.subscribe("TopicTest", "*"); 的时候会 put 进去
         return subscriptionInner;
     }
 
@@ -256,7 +260,13 @@ public abstract class RebalanceImpl {
                 break;
             }
             case CLUSTERING: {
+                // 可以看到，是直接从 topicSubscribeInfoTable 这个 Map 当中取的，
+                // Key 是 Topic 的名称，Value 是 MessageQueue 的 Set 集合。
                 Set<MessageQueue> mqSet = this.topicSubscribeInfoTable.get(topic);
+                // 找到所有的 consumer
+                // Consumer 会通过内部的 MQClientInstance 组件发起对 Broker 的请求，
+                // 该 RequestCode 是 GET_CONSUMER_LIST_BY_GROUP，代表通过 ConsumerGroup 的名称获取到所有的 Consumer
+                // cid clientId
                 List<String> cidAll = this.mQClientFactory.findConsumerIdList(topic, consumerGroup);
                 if (null == mqSet) {
                     if (!topic.startsWith(MixAll.RETRY_GROUP_TOPIC_PREFIX)) {
@@ -272,6 +282,9 @@ public abstract class RebalanceImpl {
                     List<MessageQueue> mqAll = new ArrayList<MessageQueue>();
                     mqAll.addAll(mqSet);
 
+                    // 首先我们得明白一件事：Rebalance 是在客户端执行的，它不是由 Broker 来统一执行的。那么既然是在客户端执行，
+                    // 如果此时消费者组里有 10 个 Consumer，
+                    // 如何保证这 10 个 Consumer 客户端分别执行 Rebalance 逻辑、并拿到互不相同的 MessageQueue 呢？
                     Collections.sort(mqAll);
                     Collections.sort(cidAll);
 

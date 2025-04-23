@@ -72,6 +72,9 @@ public class ClientManageProcessor extends AsyncNettyRequestProcessor implements
         return false;
     }
 
+    /**
+     * 接收客户端的心跳
+     */
     public RemotingCommand heartBeat(ChannelHandlerContext ctx, RemotingCommand request) {
         RemotingCommand response = RemotingCommand.createResponseCommand(null);
         HeartbeatData heartbeatData = HeartbeatData.decode(request.getBody(), HeartbeatData.class);
@@ -93,6 +96,7 @@ public class ClientManageProcessor extends AsyncNettyRequestProcessor implements
                 if (data.isUnitMode()) {
                     topicSysFlag = TopicSysFlag.buildSysFlag(false, true);
                 }
+                // 重试队列
                 String newTopic = MixAll.getRetryTopic(data.getGroupName());
                 this.brokerController.getTopicConfigManager().createTopicInSendMessageBackMethod(
                     newTopic,

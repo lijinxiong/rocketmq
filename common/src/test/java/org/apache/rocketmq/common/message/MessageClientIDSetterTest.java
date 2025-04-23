@@ -28,6 +28,8 @@ public class MessageClientIDSetterTest {
 
     @Test
     public void testGetTimeFromID() {
+        //  Integer.MIN_VALUE 7F000001B19918B4AAC21621 CB600000
+        //
         long t = System.currentTimeMillis();
         String uniqID = MessageClientIDSetter.createUniqID();
         long t2 = MessageClientIDSetter.getNearlyTimeFromID(uniqID).getTime();

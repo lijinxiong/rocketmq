@@ -76,6 +76,7 @@ public class TransactionalMessageBridge {
         long offset = brokerController.getConsumerOffsetManager().queryOffset(TransactionalMessageUtil.buildConsumerGroup(),
             mq.getTopic(), mq.getQueueId());
         if (offset == -1) {
+            // 从队列中最小的位移开始消费
             offset = store.getMinOffsetInQueue(mq.getTopic(), mq.getQueueId());
         }
         return offset;
@@ -192,6 +193,9 @@ public class TransactionalMessageBridge {
         return foundList;
     }
 
+    /**
+     * 存储事务半消息
+     */
     public PutMessageResult putHalfMessage(MessageExtBrokerInner messageInner) {
         return store.putMessage(parseHalfMessageInner(messageInner));
     }
@@ -200,12 +204,18 @@ public class TransactionalMessageBridge {
         return store.asyncPutMessage(parseHalfMessageInner(messageInner));
     }
 
+    /**
+     * 从原始消息里构造一条半消息
+     */
     private MessageExtBrokerInner parseHalfMessageInner(MessageExtBrokerInner msgInner) {
+        // 源主题
         MessageAccessor.putProperty(msgInner, MessageConst.PROPERTY_REAL_TOPIC, msgInner.getTopic());
-        MessageAccessor.putProperty(msgInner, MessageConst.PROPERTY_REAL_QUEUE_ID,
-            String.valueOf(msgInner.getQueueId()));
+        // 源队列
+        MessageAccessor.putProperty(msgInner, MessageConst.PROPERTY_REAL_QUEUE_ID, String.valueOf(msgInner.getQueueId()));
+        // 设置系统 flag ？ TRANSACTION_NOT_TYPE TRANSACTION_PREPARED_TYPE TRANSACTION_COMMIT_TYPE TRANSACTION_ROLLBACK_TYPE
         msgInner.setSysFlag(
             MessageSysFlag.resetTransactionValue(msgInner.getSysFlag(), MessageSysFlag.TRANSACTION_NOT_TYPE));
+        // 统一放到 RMQ_SYS_TRANS_HALF_TOPIC 的 0 队列中
         msgInner.setTopic(TransactionalMessageUtil.buildHalfTopic());
         msgInner.setQueueId(0);
         msgInner.setPropertiesString(MessageDecoder.messageProperties2String(msgInner.getProperties()));

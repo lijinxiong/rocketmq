@@ -1231,6 +1231,7 @@ public class BrokerController {
 
     private void startProcessorByHa(BrokerRole role) {
         if (BrokerRole.SLAVE != role) {
+            // 非从
             if (this.transactionalMessageCheckService != null) {
                 this.transactionalMessageCheckService.start();
             }

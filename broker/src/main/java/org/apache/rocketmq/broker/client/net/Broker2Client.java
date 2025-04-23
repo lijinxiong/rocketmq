@@ -91,6 +91,7 @@ public class Broker2Client {
 
         NotifyConsumerIdsChangedRequestHeader requestHeader = new NotifyConsumerIdsChangedRequestHeader();
         requestHeader.setConsumerGroup(consumerGroup);
+        // 通知 client 做 rebalance
         RemotingCommand request =
             RemotingCommand.createRequestCommand(RequestCode.NOTIFY_CONSUMER_IDS_CHANGED, requestHeader);
 

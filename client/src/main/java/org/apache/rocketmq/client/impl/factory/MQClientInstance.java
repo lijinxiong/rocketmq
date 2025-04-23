@@ -117,6 +117,9 @@ public class MQClientInstance {
     });
     private final ClientRemotingProcessor clientRemotingProcessor;
     private final PullMessageService pullMessageService;
+    /**
+     * 重平衡
+     */
     private final RebalanceService rebalanceService;
     private final DefaultMQProducer defaultMQProducer;
     private final ConsumerStatsManager consumerStatsManager;
@@ -296,6 +299,7 @@ public class MQClientInstance {
                     // 清除下线的 broker 信息
                     MQClientInstance.this.cleanOfflineBroker();
                     // 向所有的 broker 发送心跳信息
+                    // 这里发送的心跳信息、broker 会收集用于后面的 rebalance
                     MQClientInstance.this.sendHeartbeatToAllBrokerWithLock();
                 } catch (Exception e) {
                     log.error("ScheduledTask sendHeartbeatToAllBroker exception", e);
@@ -980,10 +984,12 @@ public class MQClientInstance {
     }
 
     public void doRebalance() {
+        // 遍历当前实例所有的消费者
         for (Map.Entry<String, MQConsumerInner> entry : this.consumerTable.entrySet()) {
             MQConsumerInner impl = entry.getValue();
             if (impl != null) {
                 try {
+                    // 对应的 consumer 内部进行重平衡
                     impl.doRebalance();
                 } catch (Throwable e) {
                     log.error("doRebalance exception", e);
@@ -1063,6 +1069,7 @@ public class MQClientInstance {
 
         if (null != brokerAddr) {
             try {
+
                 return this.mQClientAPIImpl.getConsumerIdListByGroup(brokerAddr, group, clientConfig.getMqClientApiTimeout());
             } catch (Exception e) {
                 log.warn("getConsumerIdListByGroup exception, " + brokerAddr + " " + group, e);

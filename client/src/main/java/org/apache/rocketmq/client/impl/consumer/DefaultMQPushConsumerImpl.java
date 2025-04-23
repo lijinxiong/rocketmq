@@ -97,6 +97,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
     private static final long CONSUMER_TIMEOUT_MILLIS_WHEN_SUSPEND = 1000 * 30;
     private final InternalLogger log = ClientLogger.getLog();
     private final DefaultMQPushConsumer defaultMQPushConsumer;
+    // 重平衡
     private final RebalanceImpl rebalanceImpl = new RebalancePushImpl(this);
     private final ArrayList<FilterMessageHook> filterMessageHookList = new ArrayList<FilterMessageHook>();
     private final long consumerStartTimestamp = System.currentTimeMillis();
@@ -107,6 +108,9 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
      * MQ 客户端实例
      */
     private MQClientInstance mQClientFactory;
+    /**
+     * 拉取消息
+     */
     private PullAPIWrapper pullAPIWrapper;
     private volatile boolean pause = false;
     private boolean consumeOrderly = false;
@@ -584,6 +588,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
 
                 this.checkConfig();
 
+                // 重试主题
                 this.copySubscription();
 
                 if (this.defaultMQPushConsumer.getMessageModel() == MessageModel.CLUSTERING) {
@@ -657,9 +662,12 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
                 break;
         }
 
+        // 从 name server 中获取订阅的主题的队列信息、后面重平衡回用到
         this.updateTopicSubscribeInfoWhenSubscriptionChanged();
         this.mQClientFactory.checkClientInBroker();
+        // mQClientFactory.start(); 里面虽然有心跳信息、但是是延迟 1s 之后再发送的、所以这里主动发送一次
         this.mQClientFactory.sendHeartbeatToAllBrokerWithLock();
+        // 必须执行一次 rebalance 、否则它得不到任何的 queue 去消费
         this.mQClientFactory.rebalanceImmediately();
     }
 
@@ -853,6 +861,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
                 case BROADCASTING:
                     break;
                 case CLUSTERING:
+                    // 重试主题
                     final String retryTopic = MixAll.getRetryTopic(this.defaultMQPushConsumer.getConsumerGroup());
                     SubscriptionData subscriptionData = FilterAPI.buildSubscriptionData(retryTopic, SubscriptionData.SUB_ALL);
                     this.rebalanceImpl.getSubscriptionInner().put(retryTopic, subscriptionData);
@@ -870,6 +879,8 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
     }
 
     private void updateTopicSubscribeInfoWhenSubscriptionChanged() {
+        // 订阅的时候会插入到这个map
+        // 后面 start 的时候会加上这个分组的重试主题
         Map<String, SubscriptionData> subTable = this.getSubscriptionInner();
         if (subTable != null) {
             for (final Map.Entry<String, SubscriptionData> entry : subTable.entrySet()) {

@@ -280,6 +280,7 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
         TopicConfig topicConfig = this.brokerController.getTopicConfigManager().selectTopicConfig(requestHeader.getTopic());
 
         if (queueIdInt < 0) {
+            // 没有指定
             queueIdInt = randomQueueId(topicConfig.getWriteQueueNums());
         }
 
@@ -301,6 +302,7 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
         msgInner.setReconsumeTimes(requestHeader.getReconsumeTimes() == null ? 0 : requestHeader.getReconsumeTimes());
         String clusterName = this.brokerController.getBrokerConfig().getBrokerClusterName();
         MessageAccessor.putProperty(msgInner, MessageConst.PROPERTY_CLUSTER, clusterName);
+
         if (origProps.containsKey(MessageConst.PROPERTY_WAIT_STORE_MSG_OK)) {
             // There is no need to store "WAIT=true", remove it from propertiesString to save 9 bytes for each message.
             // It works for most case. In some cases msgInner.setPropertiesString invoked later and replace it.
@@ -314,7 +316,9 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
 
         CompletableFuture<PutMessageResult> putMessageResult = null;
         String transFlag = origProps.get(MessageConst.PROPERTY_TRANSACTION_PREPARED);
+        // 是否是事务的标识
         if (Boolean.parseBoolean(transFlag)) {
+            // 不接受事务消息
             if (this.brokerController.getBrokerConfig().isRejectTransactionMessage()) {
                 response.setCode(ResponseCode.NO_PERMISSION);
                 response.setRemark(
@@ -322,6 +326,7 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
                                 + "] sending transaction message is forbidden");
                 return CompletableFuture.completedFuture(response);
             }
+            // 处理事务消息
             putMessageResult = this.brokerController.getTransactionalMessageService().asyncPrepareMessage(msgInner);
         } else {
             putMessageResult = this.brokerController.getMessageStore().asyncPutMessage(msgInner);

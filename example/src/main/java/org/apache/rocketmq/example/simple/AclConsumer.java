@@ -7,6 +7,7 @@ import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyContext;
 import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyStatus;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
 import org.apache.rocketmq.client.consumer.rebalance.AllocateMessageQueueAveragely;
+import org.apache.rocketmq.client.consumer.rebalance.AllocateMessageQueueAveragelyByCircle;
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.common.consumer.ConsumeFromWhere;
 import org.apache.rocketmq.common.message.MessageExt;
@@ -17,7 +18,9 @@ import java.util.List;
 public class AclConsumer {
 
     public static void main(String[] args) throws InterruptedException, MQClientException {
-        DefaultMQPushConsumer consumer = new DefaultMQPushConsumer("please_rename_unique_group_name_4", getAclRPCHook(),new AllocateMessageQueueAveragely());
+
+        System.setProperty("rocketmq.client.logUseSlf4j", "true");
+        DefaultMQPushConsumer consumer = new DefaultMQPushConsumer("sdfsf", getAclRPCHook(), new AllocateMessageQueueAveragelyByCircle());
         consumer.setConsumeFromWhere(ConsumeFromWhere.CONSUME_FROM_FIRST_OFFSET);
         consumer.subscribe("TopicTest", "*");
         consumer.setNamesrvAddr("127.0.0.1:9876");
@@ -31,6 +34,9 @@ public class AclConsumer {
         });
         consumer.start();
         System.out.printf("Consumer Started.%n");
+        while (true) {
+            Thread.sleep(10000);
+        }
     }
 
     static RPCHook getAclRPCHook() {

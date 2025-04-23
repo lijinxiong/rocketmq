@@ -72,6 +72,9 @@ public class ClientConfig {
      */
     protected boolean enableStreamRequestType = false;
 
+    /**
+     * @return ip@UtilAll.getPid() + "#" + System.nanoTime()
+     */
     public String buildMQClientId() {
         StringBuilder sb = new StringBuilder();
         sb.append(this.getClientIP());
